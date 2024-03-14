@@ -46,7 +46,7 @@ class TrainingArguments(transformers.TrainingArguments):
     optim: str = field(default="adamw_torch")
     model_max_length: int = field(default=512, metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},)
     lora_r: int = field(default=16)
-    init_lora_weights: str = field(default=True, metadata={"help": "init_lora_weights (`bool` | `Literal['gaussian', 'loftq', 'pisa', 'pisa_init']`):"})
+    init_lora_weights: str = field(default='fp', metadata={"help": "init_lora_weights (`['gaussian', 'loftq', 'pisa', 'pisa_init']`):"})
     merge_and_save: bool = field(default=False)
 
 
@@ -155,7 +155,9 @@ def train():
         script_args.model_name_or_path,
         cache_dir=script_args.cache_dir,
     )
-    lora_config = LoraConfig(
+
+    if script_args.init_lora_weights != 'fp':
+        lora_config = LoraConfig(
             r=script_args.lora_r,
             lora_alpha=script_args.lora_r,
             init_lora_weights=True if script_args.init_lora_weights == "lora" else script_args.init_lora_weights,
@@ -164,7 +166,7 @@ def train():
             bias="none",
             task_type="CAUSAL_LM",
         )
-    model = get_peft_model(model, lora_config)
+        model = get_peft_model(model, lora_config)
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         script_args.model_name_or_path,
