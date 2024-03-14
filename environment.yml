@@ -1,4 +1,4 @@
-name: wizardmath
+name: pisa
 channels:
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/pytorch/linux-64/
@@ -124,7 +124,6 @@ dependencies:
       - packaging==24.0
       - pandas==2.0.3
       - parso==0.8.3
-      - peft==0.9.1.dev0
       - pexpect==4.9.0
       - pickleshare==0.7.5
       - pkgutil-resolve-name==1.3.10
@@ -179,4 +178,4 @@ dependencies:
       - xxhash==3.4.1
       - yarl==1.9.4
       - zipp==3.17.0
-prefix: /ceph/home/muhan01/mini_conda/envs/wizardmath
+prefix: /home/conda/envs/pisa
