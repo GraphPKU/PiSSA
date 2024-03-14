@@ -19,7 +19,7 @@ pip install human_eval
 pip install git+https://github.com/fxmeng/peft.git
 ```
 
-## PiSA Initialization ([code](https://github.com/fxmeng/peft/blob/a320ff7167816c963e846ce4091bbc860e5ff541/src/peft/tuners/lora/layer.py#L153))
+## PiSA Initialization ([code](https://github.com/fxmeng/peft/blob/a320ff7167816c963e846ce4091bbc860e5ff541/src/peft/tuners/lora/layer.py#L153)) :
 
 ```
 def pisa_init(self, adapter_name):
@@ -34,7 +34,7 @@ def pisa_init(self, adapter_name):
 ```
 
 
-## How to use PiSA to initialize a linear LoRA layer:
+## How to use PiSA to initialize a linear LoRA layer :
 ```
 from peft.tuners.lora import Linear
 import torch
@@ -53,7 +53,7 @@ pisa_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default', init_lor
 print(pisa_layer(x).sum())
 ```
 
-## All the datasets are under the folder ./data:
+## All the datasets are under the folder ./data :
 ```
 # Training set - data/MetaMathQA-395K.json:
 {
@@ -78,9 +78,10 @@ print(pisa_layer(x).sum())
 
 ```
 
-## Running Scripts:
+## Running Scripts :
 ```
 # Training command:
+
 python train.py \
     --model_name_or_path ${local or remote model} \
     --data_path data/MetaMathQA-395K.json \
@@ -108,6 +109,7 @@ python train.py \
     --report_to ${none|tensorboard|wandb}
 
 # Evaluation command:
+
 python inference/gsm8k_inference.py --data_file data/gsm8k_test.jsonl --model output/model-metamath --batch_size 60 --tensor_parallel_size 1
 python inference/MATH_inference.py --data_file data/MATH_test.jsonl --model output/model-metamath --batch_size 60 --tensor_parallel_size 1
 ```
