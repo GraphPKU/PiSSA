@@ -53,7 +53,7 @@ pisa_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default', init_lor
 print(pisa_layer(x).sum())
 ```
 
-
+## All the datasets are under the folder ./data:
 ```
 # Training set - data/MetaMathQA-395K.json:
 {
@@ -78,6 +78,7 @@ print(pisa_layer(x).sum())
 
 ```
 
+## Running Scripts:
 ```
 # Training command:
 python train.py \
