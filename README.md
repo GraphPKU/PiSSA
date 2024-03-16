@@ -24,13 +24,15 @@ pip install git+https://github.com/fxmeng/peft.git
 ```
 def pisa_init(self, adapter_name):
     assert self.scaling[adapter_name] == 1
-    u,s,v = self.base_layer.weight.data.svd()
-    ur = u[:,:self.r[adapter_name]]
-    sr = torch.sqrt(s[:self.r[adapter_name]])
-    vr = v[:,:self.r[adapter_name]].t()
-    self.lora_A[adapter_name].weight.data = torch.mm(torch.diag(sr), vr)
-    self.lora_B[adapter_name].weight.data = torch.mm(ur, torch.diag(sr))
-    self.base_layer.weight.data = self.base_layer.weight.data - torch.mm(self.lora_B[adapter_name].weight.data, self.lora_A[adapter_name].weight.data)
+    U, S, Vh = torch.linalg.svd(self.base_layer.weight.data, full_matrices=False)
+    Ur = U[:,:self.r[adapter_name]]
+    Sr = S[:self.r[adapter_name]]
+    Vhr = Vh[:self.r[adapter_name]]
+    lora_A = torch.diag(torch.sqrt(Sr)) @ Vhr
+    lora_B = Ur @ torch.diag(torch.sqrt(Sr))
+    self.lora_A[adapter_name].weight.data = lora_A
+    self.lora_B[adapter_name].weight.data = lora_B
+    self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
 ```
 
 
@@ -44,7 +46,7 @@ x = torch.randn(16, 50, 1024)
 layer = nn.Linear(1024, 4096, bias=False)
 print(layer(x).sum())
 
-# Vanilla LoRA (zero initialized)
+# Vanilla LoRA (initializes with Kaiming-uniform/gaussian for weight A and zeros for weight B)
 lora_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default')
 print(lora_layer(x).sum())
 
@@ -52,6 +54,64 @@ print(lora_layer(x).sum())
 pisa_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default', init_lora_weights='pisa_init')
 print(pisa_layer(x).sum())
 ```
+
+## How to use PiSA to initialize a model (taking about 2 minutes for 4090) :
+```
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import LoraConfig, get_peft_model
+base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", device_map='auto')
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+lora_config = LoraConfig(r=64, lora_alpha=64, init_lora_weights='pisa_init')
+pisa_model = get_peft_model(base_model, lora_config)
+```
+
+## Save PiSA initialized LoRA layers and the residual model (W-USV) for fast loading
+```
+# Save LoRA layers
+pisa_model.peft_config['default'].init_lora_weights = True # it's unnecessary using pisa initialization during loading
+pisa_model.save_pretrained('pisa/pisa_init')
+
+# Saving the residual model
+lora_config = LoraConfig(r=64, lora_alpha=64)
+pisa_model.add_adapter(adapter_name='zero_init', peft_config=lora_config)
+pisa_model.merge_and_unload(adapter_names=['zero_init'])
+base_model = pisa_model.get_base_model()
+base_model.save_pretrained('pisa')
+tokenizer.save_pretrained('pisa')
+
+
+# Fast loading
+from peft import PeftModel
+base_model = AutoModelForCausalLM.from_pretrained("pisa", device_map='auto')
+model = PeftModel.from_pretrained(base_model, 'pisa/pisa_init')
+```
+
+## 4-bit training
+```
+# Require saving PiSA initialized LoRA layers and the residual model first, and then:
+
+import torch
+from transformers import BitsAndBytesConfig
+config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
+
+# Quantize the residual model
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained('pisa', quantization_config=config)
+
+# Add pisa-initialized lora layers
+from peft import PeftModel
+model = PeftModel.from_pretrained(model, 'pisa/pisa_init')
+
+# Allowing kbit training
+from peft import prepare_model_for_kbit_training
+model = prepare_model_for_kbit_training(model)
+```
+
 
 ## All the datasets are under the folder ./data :
 ```
@@ -81,12 +141,14 @@ print(pisa_layer(x).sum())
 ## Running Scripts :
 ```
 # Training command:
+# --init_lora_weights = fp means finetune full parameters when --merge_and_save should be False.
 
 python train.py \
     --model_name_or_path ${local or remote model} \
     --data_path data/MetaMathQA-395K.json \
-    --output_dir output/model-metamath \
-    --init_lora_weights ${siqa|lora|fp} \
+    --output_dir ${output/model-metamath} \
+    --init_lora_weights ${pisa|lora|fp} \
+    --report_to ${none|tensorboard|wandb} \
     --query "query" \
     --response "response"\
     --merge_and_save True \
@@ -105,8 +167,7 @@ python train.py \
     --warmup_ratio 0.03 \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
-    --tf32 True \
-    --report_to ${none|tensorboard|wandb}
+    --tf32 True
 
 # Evaluation command:
 
