@@ -1,176 +1,219 @@
-# PiSA
+# PiSSA
+
+As the parameters of large language models (LLMs) expand, the computational cost of fine-tuning the entire model becomes prohibitive. To address this challenge, we introduce a parameter-efficient fine-tuning (PEFT) method, \textbf{P}r\textbf{i}ncipal \textbf{S}ingular values and \textbf{S}ingular vectors \textbf{A}daptation (PiSSA), which optimizes a significantly reduced parameter space while achieving or surpassing the performance of full-parameter fine-tuning. PiSSA is inspired by Intrinsic SAID, which suggests that pre-trained, over-parametrized models inhabit a space of low intrinsic dimension. Consequently, a matrix \(W\in\mathbb{R}^{m\times n}\) within the model can be represented by the product of two trainable matrices \(A \in \mathbb{R}^{m\times r}\) and \(B \in \mathbb{R}^{r\times n}\), where \(r \ll \min(m, n)\), plus a residual matrix \(W^{res}\) for error correction. Singular value decomposition (SVD) is employed to factorize \(W\), and the principal singular values and vectors of \(W\) are utilized to initialize \(A\) and \(B\). The residual singular values and vectors initialize the residual matrix \(W^{res}\), which keeps frozen during fine-tuning. Given that the principal singular values and vectors encapsulate the core competencies of a low-rank matrix, and the residual matrix ensures the new model is equivalent to the original at the start of fine-tuning, PiSSA effectively approximates the outcomes of full-parameter fine-tuning. Notably, PiSSA shares the same architecture with Low-Rank Adaptation (LoRA), which hypothesizes that changes in model parameters, denoted as \(\Delta W\), form a low-rank matrix. This allows for the approximation of \(\Delta W\) through the product of two matrices, \(A\), initialized with Gaussian noise, and \(B\), initialized with zeros. Despite differing in underlying mechanisms, PiSSA can act as an optional initialization strategy for LoRA, inheriting all its advantages.
+Leveraging a fast SVD method, the initialization takes only a few seconds, yet PiSSA demonstrates faster convergence and improved performance compared to LoRA during fine-tuning.
+
+![PiSSA](./assets/full-lora-pissa.png)
+![GSM8K](./assets/gsm8k.png)
 
 
-## Install :
+## Quickstart :
 
-```
-conda create -n pisa python=3.8 -y
-conda activate pisa
-pip install -U vllm
-pip install -U xformers
-pip install -U torch
-pip install -U accelerate
-pip install datasets
-pip install transformers
-pip install jsonlines
-pip install Fraction
-pip install openai
-pip install human_eval
-pip install git+https://github.com/fxmeng/peft.git
-```
+<details open>
+<summary>1. Install PiSSA via pip:</summary>
 
-## PiSA Initialization ([code](https://github.com/fxmeng/peft/blob/a320ff7167816c963e846ce4091bbc860e5ff541/src/peft/tuners/lora/layer.py#L153)) :
-
-```
-def pisa_init(self, adapter_name):
-    assert self.scaling[adapter_name] == 1
-    U, S, Vh = torch.linalg.svd(self.base_layer.weight.data, full_matrices=False)
-    Ur = U[:,:self.r[adapter_name]]
-    Sr = S[:self.r[adapter_name]]
-    Vhr = Vh[:self.r[adapter_name]]
-    lora_A = torch.diag(torch.sqrt(Sr)) @ Vhr
-    lora_B = Ur @ torch.diag(torch.sqrt(Sr))
-    self.lora_A[adapter_name].weight.data = lora_A
-    self.lora_B[adapter_name].weight.data = lora_B
-    self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
-```
+    pip install git+https://github.com/fxmeng/peft.git
+</details>
 
 
-## How to use PiSA to initialize a linear LoRA layer :
-```
-from peft.tuners.lora import Linear
-import torch
-import torch.nn as nn
+<details>
+<summary>[Optional] Installation from Source Code:</summary>
 
-x = torch.randn(16, 50, 1024)
-layer = nn.Linear(1024, 4096, bias=False)
-print(layer(x).sum())
+    git clone https://github.com/fxmeng/peft.git
+    cd peft
 
-# Vanilla LoRA (initializes with Kaiming-uniform/gaussian for weight A and zeros for weight B)
-lora_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default')
-print(lora_layer(x).sum())
+    # To modify the implementation, you can edit the file by:
+    # vim src/peft/tuners/lora/layer.py # L154-L186
+    # and adjust the pissa_init method as shown below:
+    # def pissa_init(self, adapter_name):
+    #     assert self.scaling[adapter_name] == 1
+    #     U, S, Vh = torch.linalg.svd(self.base_layer.weight.data, full_matrices=False)
+    #     Ur = U[:,:self.r[adapter_name]]
+    #     Sr = S[:self.r[adapter_name]]
+    #     Vhr = Vh[:self.r[adapter_name]]
+    #     lora_A = torch.diag(torch.sqrt(Sr)) @ Vhr
+    #     lora_B = Ur @ torch.diag(torch.sqrt(Sr))
+    #     self.lora_A[adapter_name].weight.data = lora_A
+    #     self.lora_B[adapter_name].weight.data = lora_B
+    #     self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
 
-# PiSA-initialized LoRA (initialized with the principal singular values and vectors)
-pisa_layer = Linear(layer, r=16, lora_alpha=16, adapter_name='default', init_lora_weights='pisa_init')
-print(pisa_layer(x).sum())
-```
+    pip install -e .
+</details>
 
-## How to use PiSA to initialize a model (taking about 2 minutes for 4090) :
-```
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import LoraConfig, get_peft_model
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", device_map='auto')
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-lora_config = LoraConfig(r=64, lora_alpha=64, init_lora_weights='pisa_init')
-pisa_model = get_peft_model(base_model, lora_config)
-```
+<details open>
+<summary>2. Initializing PiSSA and the residual model with SVD:</summary>
 
-## Save PiSA initialized LoRA layers and the residual model (W-USV) for fast loading
-```
-# Save LoRA layers
-pisa_model.peft_config['default'].init_lora_weights = True # it's unnecessary using pisa initialization during loading
-pisa_model.save_pretrained('pisa/pisa_init')
+    # Download the standard llama-2-7b model from huggingface:
 
-# Saving the residual model
-lora_config = LoraConfig(r=64, lora_alpha=64)
-pisa_model.add_adapter(adapter_name='zero_init', peft_config=lora_config)
-pisa_model.merge_and_unload(adapter_names=['zero_init'])
-base_model = pisa_model.get_base_model()
-base_model.save_pretrained('pisa')
-tokenizer.save_pretrained('pisa')
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
+    # Inject PiSSA to the base model:
 
-# Fast loading
-from peft import PeftModel
-base_model = AutoModelForCausalLM.from_pretrained("pisa", device_map='auto')
-model = PeftModel.from_pretrained(base_model, 'pisa/pisa_init')
-```
-
-## 4-bit training
-```
-# Require saving PiSA initialized LoRA layers and the residual model first, and then:
-
-import torch
-from transformers import BitsAndBytesConfig
-config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_compute_dtype=torch.bfloat16,
-)
-
-# Quantize the residual model
-from transformers import AutoModelForCausalLM
-model = AutoModelForCausalLM.from_pretrained('pisa', quantization_config=config)
-
-# Add pisa-initialized lora layers
-from peft import PeftModel
-model = PeftModel.from_pretrained(model, 'pisa/pisa_init')
-
-# Allowing kbit training
-from peft import prepare_model_for_kbit_training
-model = prepare_model_for_kbit_training(model)
-```
+    from peft import LoraConfig, get_peft_model
+    peft_config = LoraConfig(
+        r = 16,
+        lora_alpha = 16, # lora_alpha should match r to maintain scaling = 1
+        lora_dropout = 0,
+        init_lora_weights='pissa', # PiSSA initialization
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+</details>
 
 
-## All the datasets are under the folder ./data :
-```
-# Training set - data/MetaMathQA-395K.json:
-{
-    "query": "Gracie and Joe are choosing numbers on the complex plane. Joe chooses the point $1+2i$. Gracie chooses $-1+i$. How far apart are Gracie and Joe's points?", 
-    "response": "The distance between two points $(x_1,y_1)$ and $(x_2,y_2)$ in the complex plane is given by the formula $\\sqrt{(x_2-x_1)^2+(y_2-y_1)^2}$.\nIn this case, Joe's point is $(1,2)$ and Gracie's point is $(-1,1)$.\nSo the distance between their points is $\\sqrt{((-1)-(1))^2+((1)-(2))^2}=\\sqrt{(-2)^2+(-1)^2}=\\sqrt{4+1}=\\sqrt{5}$.\nTherefore, Gracie and Joe's points are $\\boxed{\\sqrt{5}}$ units apart.\nThe answer is: \\sqrt{5}", "type": "MATH_AnsAug", "original_question": "Gracie and Joe are choosing numbers on the complex plane. Joe chooses the point $1+2i$. Gracie chooses $-1+i$. How far apart are Gracie and Joe's points?"
-}
+<details>
+<summary>[Optional] Fast SVD Initialization for PiSSA:</summary>
 
-# Evaluation set data/gsm8k_test.jsonl:
-{
-    "question": "A robe takes 2 bolts of blue fiber and half that much white fiber.  How many bolts in total does it take?", 
-    "answer": "It takes 2/2=<<2/2=1>>1 bolt of white fiber\nSo the total amount of fabric is 2+1=<<2+1=3>>3 bolts of fabric\n#### 3"
-}
-...
-# Evaluation set data/MATH_test.jsonl:
-{
-    "idx": "hendrycks_math_2", 
-    "instruction": "Compute $\\arccos (-1).$  Express your answer in radians.", 
-    "input": "", 
-    "output": "Since $\\cos \\pi = -1,$ $\\arccos (-1) = \\boxed{\\pi}.$", 
-    "type": "Precalculus"
-}
+    # Download the llama-2-7b model from huggingface:
 
-```
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
-## Running Scripts :
-```
-# Training command:
-# --init_lora_weights = fp means finetune full parameters when --merge_and_save should be False.
+    # Configure PiSSA with Fast SVD:
 
-python train.py \
-    --model_name_or_path ${local or remote model} \
-    --data_path data/MetaMathQA-395K.json \
-    --output_dir ${output/model-metamath} \
-    --init_lora_weights ${pisa|lora|fp} \
-    --report_to ${none|tensorboard|wandb} \
-    --query "query" \
-    --response "response"\
-    --merge_and_save True \
-    --data_length 100000 \
-    --bf16 True \
-    --num_train_epochs 1 \
-    --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 32 \
-    --evaluation_strategy "no" \
-    --save_strategy "steps" \
-    --save_steps 1000 \
-    --save_total_limit 2 \
-    --learning_rate 2e-5 \
-    --weight_decay 0. \
-    --warmup_ratio 0.03 \
-    --lr_scheduler_type "cosine" \
-    --logging_steps 1 \
-    --tf32 True
+    from peft import LoraConfig, get_peft_model
+    peft_config = LoraConfig(
+        r = 16,
+        lora_alpha = 16,
+        lora_dropout = 0,
+        init_lora_weights='pissa_niter_4', # Fast initialization with "_niter_xx"
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+</details>
 
-# Evaluation command:
 
-python inference/gsm8k_inference.py --data_file data/gsm8k_test.jsonl --model output/model-metamath --batch_size 60 --tensor_parallel_size 1
-python inference/MATH_inference.py --data_file data/MATH_test.jsonl --model output/model-metamath --batch_size 60 --tensor_parallel_size 1
-```
+
+<details>
+<summary>[Optional] Fast SVD and 4-bit Quantization for PiSSA</summary>
+
+    # Download and load the llama-2-7b model in 4-bit format:
+
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+    from peft import prepare_model_for_kbit_training
+    config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', quantization_config=config)
+    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    # wrapping the model with PiSSA:
+
+    from peft import LoraConfig, get_peft_model
+    peft_config = LoraConfig(
+        r = 16,
+        lora_alpha = 16,
+        lora_dropout = 0,
+        init_lora_weights='pissa_niter_4', # Accelerated initialization with "_niter_xx"
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, peft_config)
+    model = prepare_model_for_kbit_training(model)
+    model.print_trainable_parameters()
+</details>
+
+
+<details open>
+<summary>3. Finetune PiSSA on Alpaca Dataset:</summary>
+
+    from trl import SFTTrainer
+    from datasets import load_dataset
+    dataset = load_dataset("fxmeng/alpaca_in_mixtral_format", split="train")
+    trainer = SFTTrainer(
+        model=model,
+        train_dataset=dataset,
+        dataset_text_field="text",
+        max_seq_length=1024,
+        tokenizer=tokenizer
+    )
+    trainer.train()
+</details>
+
+
+<details open>
+<summary>4. save and sharing your fine-tuned PiSSA to Hugging Face:</summary>
+
+    model.save_pretrained('pissa-r16-llama-2-7b-alpaca') # Save locally
+    model.push_to_hub('username/pissa-r16-llama-2-7b-alpaca') # # Push to Hugging Face
+</details>
+
+<details>
+<summary>[Optional] Convert PiSSA to LoRA for sharing to Hugging Face</summary>
+
+    ### It's essential to save initial PiSSA parameters for conversion to LoRA. ###
+
+    model.save_pretrained('pissa-r16-llama-2-7b-alpaca-init')
+
+    ### trainer.train()... ###
+
+    ### Upon completion, save final PiSSA parameters ###
+    model.save_pretrained('pissa-r16-llama-2-7b-alpaca-finetuned')
+
+    import os
+    from safetensors import safe_open
+    from safetensors.torch import save_file
+    import json
+
+    def pissa_to_lora(init_path, finetuned_path, output_path, device='cpu', tensors_name="adapter_model.safetensors", config_name="adapter_config.json"):
+        tensors_init = {}
+        with safe_open(os.path.join(init_path, tensors_name), framework="pt", device=device) as f:
+            for k in f.keys():
+                tensors_init[k] = f.get_tensor(k)
+                
+        tensors_finetune = {}
+        with safe_open(os.path.join(finetuned_path, tensors_name), framework="pt", device=device) as f:
+            for k in f.keys():
+                tensors_finetune[k] = f.get_tensor(k)
+                
+        tensors_delta_w = {}
+        for name in tensors_init.keys():
+            tensors_delta_w[name] = tensors_finetune[name]-tensors_init[name]
+            print(name, tensors_delta_w[name].norm(p=1))
+            
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        save_file(tensors_delta_w, os.path.join(output_path, tensors_name))
+        
+        with open(os.path.join(init_path, config_name))as f:
+            adapter_config = json.load(f)
+        adapter_config['init_lora_weights']=True
+        with open(os.path.join(output_path, config_name),'w')as f:
+            json.dump(adapter_config, f)
+    
+    ### The different of the PiSSA parameters before and after the training corresponding to delta W in LoRA. ###
+    pissa_to_lora('pissa-r16-llama-2-7b-alpaca-init', 'pissa-r16-llama-2-7b-alpaca-finetuned', "pissa-r16-llama-2-7b-alpaca-delta_w", device='cpu')
+
+    ### Finally, create a new Hugging Face repository and upload the converted files... ###
+</details>
+
+
+<details open>
+<summary>5. Loading PiSSA from Local or Hugging Face:</summary>
+
+    from peft import PeftModel
+    base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b", device_map='auto')
+    model = PeftModel.from_pretrained(base_model, 'username/pissa-r16-llama-2-7b-alpaca')
+</details>
+
+
+<details>
+<summary>[Optional] Loading PiSSA-Converted LoRA from Local or Hugging Face:</summary>
+
+    from peft import PeftModel
+    base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b", device_map='auto')
+    model = PeftModel.from_pretrained(base_model, 'username/pissa-r16-llama-2-7b-alpaca-delta_w')
+</details>
