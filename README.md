@@ -164,6 +164,7 @@ Leveraging a fast SVD method, the initialization takes only a few seconds, yet P
     model.save_pretrained('pissa-r16-llama-2-7b-alpaca-finetuned')
 
     import os
+    import torch
     from safetensors import safe_open
     from safetensors.torch import save_file
     import json
@@ -181,9 +182,8 @@ Leveraging a fast SVD method, the initialization takes only a few seconds, yet P
                 
         tensors_delta_w = {}
         for name in tensors_init.keys():
-            tensors_delta_w[name] = tensors_finetune[name]-tensors_init[name]
-            print(name, tensors_delta_w[name].norm(p=1))
-            
+            tensors_delta_w[name] = torch.cat([tensors_finetune[name], -tensors_init[name]], dim=0 if 'lora_A' in name else 1)
+
         if not os.path.exists(output_path):
             os.mkdir(output_path)
         save_file(tensors_delta_w, os.path.join(output_path, tensors_name))
@@ -191,6 +191,8 @@ Leveraging a fast SVD method, the initialization takes only a few seconds, yet P
         with open(os.path.join(init_path, config_name))as f:
             adapter_config = json.load(f)
         adapter_config['init_lora_weights']=True
+        adapter_config['r']*=2
+        adapter_config['lora_alpha']*=2
         with open(os.path.join(output_path, config_name),'w')as f:
             json.dump(adapter_config, f)
     
