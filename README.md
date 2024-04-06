@@ -27,11 +27,8 @@ Due to the same architecture, PiSSA inherits many of LoRA's advantages, such as 
     # and adjust the pissa_init method as shown below:
     # def pissa_init(self, adapter_name):
     #     assert self.scaling[adapter_name] == 1
-    #     U, S, Vh = torch.linalg.svd(self.base_layer.weight.data, full_matrices=False)
-    #     Ur = U[:,:self.r[adapter_name]]
-    #     Sr = S[:self.r[adapter_name]]
-    #     Vhr = Vh[:self.r[adapter_name]]
-    #     lora_A = torch.diag(torch.sqrt(Sr)) @ Vhr
+    #     Ur, Sr, Vr = svd_lowrank(self.base_layer.weight.data, self.r[adapter_name], niter=4)
+    #     lora_A = torch.diag(torch.sqrt(Sr)) @ Vh.t()
     #     lora_B = Ur @ torch.diag(torch.sqrt(Sr))
     #     self.lora_A[adapter_name].weight.data = lora_A
     #     self.lora_B[adapter_name].weight.data = lora_B
