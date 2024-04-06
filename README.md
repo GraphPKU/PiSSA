@@ -1,7 +1,7 @@
 # **P**r**i**ncipal **S**ingular values and **S**ingular vectors **A**daptation
 
-As the parameters of large language models (LLMs) expand, the computational cost of fine-tuning the entire model becomes prohibitive. To address this challenge, we introduce a parameter-efficient fine-tuning (PEFT) method, PiSSA, which optimizes a significantly reduced parameter space while achieving or surpassing the performance of full-parameter fine-tuning. PiSSA is inspired by Intrinsic SAID, which suggests that pre-trained, over-parametrized models inhabit a space of low intrinsic dimension. Consequently, a matrix $W\in\mathbb{R}^{m\times n}$ within the model can be represented by the product of two trainable matrices $A \in \mathbb{R}^{m\times r}$ and $B \in \mathbb{R}^{r\times n}$, where $r \ll \min(m, n)$, plus a residual matrix $W^{res}$ for error correction. Singular value decomposition (SVD) is employed to factorize $W$, and the principal singular values and vectors of $W$ are utilized to initialize $A$ and $B$. The residual singular values and vectors initialize the residual matrix $W^{res}$, which keeps frozen during fine-tuning. Given that the principal singular values and vectors encapsulate the core competencies of a low-rank matrix, and the residual matrix ensures the new model is equivalent to the original at the start of fine-tuning, PiSSA effectively approximates the outcomes of full-parameter fine-tuning. Notably, PiSSA shares the same architecture with Low-Rank Adaptation (LoRA), which hypothesizes that changes in model parameters, denoted as $\Delta W$, form a low-rank matrix. This allows for the approximation of $\Delta W$ through the product of two matrices, $A$, initialized with Gaussian noise, and $B$, initialized with zeros. Despite differing in underlying mechanisms, PiSSA can act as an optional initialization strategy for LoRA, inheriting all its advantages.
-Leveraging a fast SVD method, the initialization takes only a few seconds, yet PiSSA demonstrates faster convergence and improved performance compared to LoRA during fine-tuning.
+As the parameters of large language models (LLMs) expand, the computational cost of fine-tuning the entire model becomes prohibitive. To address this challenge, we introduce a parameter-efficient fine-tuning (PEFT) method, \textbf{P}r\textbf{i}ncipal \textbf{S}ingular values and \textbf{S}ingular vectors \textbf{A}daptation (PiSSA), which optimizes a significantly reduced parameter space while achieving or surpassing the performance of full-parameter fine-tuning. PiSSA is inspired by Intrinsic SAID, which suggests that pre-trained, over-parametrized models inhabit a space of low intrinsic dimension. Consequently, PiSSA represents a matrix $W\in\mathbb{R}^{m\times n}$ within the model by the product of two trainable matrices $A \in \mathbb{R}^{m\times r}$ and $B \in \mathbb{R}^{r\times n}$, where $r \ll \min(m, n)$, plus a residual matrix $W^{res}\in\mathbb{R}^{m\times n}$ for error correction. Singular value decomposition (SVD) is employed to factorize $W$, and the principal singular values and vectors of $W$ are utilized to initialize $A$ and $B$. The residual singular values and vectors initialize the residual matrix $W^{res}$, which keeps frozen during fine-tuning. Notably, PiSSA shares the same architecture with Low-Rank Adaptation (LoRA), which hypothesizes that changes in model parameters $\Delta W$ form a low-rank matrix. However, LoRA approximates $\Delta W$ through the product of two matrices, $A$, initialized with Gaussian noise, and $B$, initialized with zeros, while PiSSA initializes $A$ and $B$ with principal singular values and singular vectors of the original matrix $W$. Given that the principal singular values and vectors capture the essence of a low-rank matrix, PiSSA can better approximate the outcomes of full-parameter fine-tuning at the beginning by changing the essential parts while freezing the ``noisy'' parts. In comparison, LoRA freezes the original matrix and updates the ``noise''. This distinction enables PiSSA to convergence much faster than LoRA and also achieve better performance in the end. On five common benchmarks, PiSSA outperforms LoRA on all of them using exactly the same setups except for a different initialization. On GSM8K, Mistral-7B fine-tuned with PiSSA achieves an accuracy of 72.86\%, outperforming LoRA's 67.7\% by 5.16\%.
+Due to the same architecture, PiSSA inherits many of LoRA's advantages, such as parameter efficiency and compatibility with quantization. Leveraging a fast SVD method, the initialization of PiSSA takes only a few seconds, inducing negligible cost of switching LoRA to PiSSA.
 
 ![PiSSA](./assets/full-lora-pissa.png)
 ![GSM8K](./assets/gsm8k.png)
@@ -219,3 +219,16 @@ Leveraging a fast SVD method, the initialization takes only a few seconds, yet P
     base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b", device_map='auto')
     model = PeftModel.from_pretrained(base_model, 'username/pissa-r16-llama-2-7b-alpaca-delta_w')
 </details>
+
+
+## Citation
+```
+@misc{meng2024pissa,
+      title={PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models}, 
+      author={Fanxu Meng and Zhaohui Wang and Muhan Zhang},
+      year={2024},
+      eprint={2404.02948},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
