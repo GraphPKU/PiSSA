@@ -72,6 +72,8 @@ Then quantizing the residual model, rather than the original model, notably decr
 ```
 dataset = load_dataset(...)
 trainer = SFTTrainer(peft_model, dataset, ...)
+# We strongly recommend preserving the pre-trained PiSSA module, which can be utilized at the end of training to compute \Delta AB, thereby converting PiSSA into LoRA for use. 
+# This approach eliminates the need to modify the base model, avoids repeated singular value decomposition, and reduces the errors introduced by fast SVD.
 peft_model.save_pretrained(os.path.join(args.output_path, "pissa_init"))
 trainer.train()
 peft_model.save_pretrained(os.path.join(args.output_path, "pissa_ft"))
