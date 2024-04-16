@@ -1,231 +1,101 @@
 # **P**r**i**ncipal **S**ingular values and **S**ingular vectors **A**daptation
 
-As the parameters of large language models (LLMs) expand, the computational cost of fine-tuning the entire model becomes prohibitive. To address this challenge, we introduce a parameter-efficient fine-tuning (PEFT) method, **P**r**i**ncipal **S**ingular values and **S**ingular vectors **A**daptation (PiSSA), which optimizes a significantly reduced parameter space while achieving or surpassing the performance of full-parameter fine-tuning. PiSSA is inspired by Intrinsic SAID, which suggests that pre-trained, over-parametrized models inhabit a space of low intrinsic dimension. Consequently, PiSSA represents a matrix $W\in\mathbb{R}^{m\times n}$ within the model by the product of two trainable matrices $A \in \mathbb{R}^{m\times r}$ and $B \in \mathbb{R}^{r\times n}$, where $r \ll \min(m, n)$, plus a residual matrix $W^{res}\in\mathbb{R}^{m\times n}$ for error correction. Singular value decomposition (SVD) is employed to factorize $W$, and the principal singular values and vectors of $W$ are utilized to initialize $A$ and $B$. The residual singular values and vectors initialize the residual matrix $W^{res}$, which keeps frozen during fine-tuning. Notably, PiSSA shares the same architecture with Low-Rank Adaptation (LoRA), which hypothesizes that changes in model parameters $\Delta W$ form a low-rank matrix. However, LoRA approximates $\Delta W$ through the product of two matrices, $A$, initialized with Gaussian noise, and $B$, initialized with zeros, while PiSSA initializes $A$ and $B$ with principal singular values and singular vectors of the original matrix $W$. Given that the principal singular values and vectors capture the essence of a low-rank matrix, PiSSA can better approximate the outcomes of full-parameter fine-tuning at the beginning by changing the essential parts while freezing the "noisy" parts. In comparison, LoRA freezes the original matrix and updates the "noise". This distinction enables PiSSA to convergence much faster than LoRA and also achieve better performance in the end. On five common benchmarks, PiSSA outperforms LoRA on all of them using exactly the same setups except for a different initialization. On GSM8K, Mistral-7B fine-tuned with PiSSA achieves an accuracy of 72.86\%, outperforming LoRA's 67.7\% by 5.16\%.
-Due to the same architecture, PiSSA inherits many of LoRA's advantages, such as parameter efficiency and compatibility with quantization. Leveraging a fast SVD method, the initialization of PiSSA takes only a few seconds, inducing negligible cost of switching LoRA to PiSSA.
+We introduce a parameter-efficient fine-tuning (PEFT) method, **P**r**i**ncipal **S**ingular values and **S**ingular vectors **A**daptation (PiSSA), which optimizes the essential singular values and vectors while freezing the "noisy" parts. In comparison, LoRA freezes the original matrix and updates the "noise". This distinction enables PiSSA to convergence much faster than LoRA and also achieve better performance in the end. On five common benchmarks, PiSSA outperforms LoRA on all of them using exactly the same setups except for a different initialization. On GSM8K, Mistral-7B fine-tuned with PiSSA achieves an accuracy of 72.86\%, outperforming LoRA's 67.7\% by 5.16\%.
+Due to the same architecture, PiSSA inherits many of LoRA's advantages, such as parameter efficiency and compatibility with quantization. 
+Furthermore, PiSSA reduces the 4-bit quantization error in LLaMA 2-7B by 18.97\%, resulting in a substantial improvement in fine-tuning performance. On the GSM8K benchmark, PiSSA achieves an accuracy of 49.13\%, surpassing the performances of QLoRA at 39.8\% and LoftQ at 40.71\%.
+Leveraging a fast SVD technique, the initialization of PiSSA takes only a few seconds, inducing negligible cost of switching LoRA to PiSSA.
 
 ![PiSSA](./assets/full-lora-pissa.png)
 ![GSM8K](./assets/gsm8k.png)
+![GSM8K](./assets/quantization.png)
 
 
 ## Quickstart :
 
-<details open>
-<summary>1. Install PiSSA via pip:</summary>
 
-    pip install git+https://github.com/fxmeng/peft.git
-</details>
+### Step 1. Install PiSSA via pip:
+```
+pip install git+https://github.com/fxmeng/peft.git
+```
+(**Optional**) Installation from Source Code:
+```
+git clone https://github.com/fxmeng/peft.git
+cd peft
+pip install -e .
 
+# To modify the implementation, you can edit peft/tuners/lora/layer.py#L155-L188 and adjust the pissa_init method as shown below:
+# def pissa_init(self, adapter_name):
+#     Ur, Sr, Vr = svd_lowrank(self.base_layer.weight.data, self.r[adapter_name])
+#     lora_A = torch.diag(torch.sqrt(Sr)) @ Vh.t()
+#     lora_B = Ur @ torch.diag(torch.sqrt(Sr))
+#     self.lora_A[adapter_name].weight.data = lora_A
+#     self.lora_B[adapter_name].weight.data = lora_B
+#     self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
+```
 
-<details>
-<summary>[Optional] Installation from Source Code:</summary>
+### Step 2. Preparing the Model
+Utilize the decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng/pissa-661ce700721235e542a5d7a8).
+If the existing settings do not meet your needs, apply [PiSSA initialization](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L85-L103) to a pre-trained model and save the decomposed parameters:
 
-    git clone https://github.com/fxmeng/peft.git
-    cd peft
+```
+# Load an original pre-processed dodel:
+model = AutoModelForCausalLM.from_pretrained(...)
 
-    # To modify the implementation, you can edit the file by:
-    # vim src/peft/tuners/lora/layer.py # L154-L186
-    # and adjust the pissa_init method as shown below:
-    # def pissa_init(self, adapter_name):
-    #     assert self.scaling[adapter_name] == 1
-    #     Ur, Sr, Vr = svd_lowrank(self.base_layer.weight.data, self.r[adapter_name], niter=4)
-    #     lora_A = torch.diag(torch.sqrt(Sr)) @ Vh.t()
-    #     lora_B = Ur @ torch.diag(torch.sqrt(Sr))
-    #     self.lora_A[adapter_name].weight.data = lora_A
-    #     self.lora_B[adapter_name].weight.data = lora_B
-    #     self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
+# Configure the initialization method to "pissa", which may take several minutes to execute SVD on the pre-trained model:
+lora_config = LoraConfig(init_lora_weights="pissa", ...) 
 
-    pip install -e .
-</details>
+# Alternatively, execute fast SVD, which takes only a few seconds. The number of iterations determines the trade-off between the error and computation time:
+# lora_config = LoraConfig(init_lora_weights="pissa_niter_[number of iters]", ...) 
 
-<details open>
-<summary>2. Initializing PiSSA and the residual model with SVD:</summary>
-
-    # Download the standard llama-2-7b model from huggingface:
-
-    import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
-    tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    # Inject PiSSA to the base model:
-
-    from peft import LoraConfig, get_peft_model
-    peft_config = LoraConfig(
-        r = 16,
-        lora_alpha = 16, # lora_alpha should match r to maintain scaling = 1
-        lora_dropout = 0,
-        init_lora_weights='pissa', # PiSSA initialization
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, peft_config)
-    model.print_trainable_parameters()
-</details>
+# Perform PiSSA on the original model according to lora_config:
+peft_model = get_peft_model(model, lora_config)
+```
+To eliminate the errors introduced by Fast SVD, we have modified the computation formula for the residual matrix to $W^{res} = W - AB$. Although the calculation of $A$ and $B$ involves errors, the overall initialization error is zero.
 
 
-<details>
-<summary>[Optional] Fast SVD Initialization for PiSSA:</summary>
+(**Recommend**) [Saving the residual model and PiSSA Adapter](https://github.com/fxmeng/peft/blob/51161a52cac3a736d931d90e676b24a32c4f8cd6/src/peft/utils/pissa_utils.py#L27-L51):
+```
+pissa_pre_training_saving(peft_model, saving_path, ...)
+```
+Store the decomposed model locally to prevent the necessity of re-decomposition across multiple fine-tuning experiments, and reducing errors when quantization of the residual model pre-decomposed at full precision.
 
-    # Download the llama-2-7b model from huggingface:
+(**Optional**) If quantization fine-tuning is desired, reload the pre-processed [residual model](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L107-L116) in 4-bit or 8-bit configurations along with the full-precision [PiSSA Adapter](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L122):
+```
+res_model = AutoModelForCausalLM.from_pretrained(saving_path, load_in_4/8bit=True, ...)
+peft_model = PeftModel.from_pretrained(res_model, f"{saving_path}/pissa_init", is_trainable=True)
+```
+When SVD is conducted at full precision, the PiSSA adapter retains the high-frequency principal components of the original model. 
+Then quantizing the residual model, rather than the original model, notably decreases the quantization error.
 
-    import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
-    tokenizer.pad_token_id = tokenizer.eos_token_id
+### Step 3. Fine-tuning PiSSA
+[Training](https://github.com/fxmeng/peft/blob/51161a52cac3a736d931d90e676b24a32c4f8cd6/examples/pissa_finetuning/pissa_finetuning.py#L131-L139) the principal singular values and singular vectors results in faster convergence and enhanced performance:
+```
+dataset = load_dataset(...)
+trainer = SFTTrainer(peft_model, dataset, ...)
+peft_model.save_pretrained(os.path.join(args.output_path, "pissa_init"))
+trainer.train()
+peft_model.save_pretrained(os.path.join(args.output_path, "pissa_ft"))
+```
 
-    # Configure PiSSA with Fast SVD:
+### Step 4. Saving and Sharing
+Upon completion of training, it is recommended to [convert PiSSA into LoRA](https://github.com/fxmeng/peft/blob/51161a52cac3a736d931d90e676b24a32c4f8cd6/src/peft/utils/pissa_utils.py#L60-L99) for storage-efficient sharing:
 
-    from peft import LoraConfig, get_peft_model
-    peft_config = LoraConfig(
-        r = 16,
-        lora_alpha = 16,
-        lora_dropout = 0,
-        init_lora_weights='pissa_niter_4', # Fast initialization with "_niter_xx"
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, peft_config)
-    model.print_trainable_parameters()
-</details>
-
-
-
-<details>
-<summary>[Optional] Fast SVD and 4-bit Quantization for PiSSA</summary>
-
-    # Download and load the llama-2-7b model in 4-bit format:
-
-    import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-    from peft import prepare_model_for_kbit_training
-    config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_compute_dtype=torch.bfloat16,
-    )
-    model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b', quantization_config=config)
-    tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b')
-    tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    # wrapping the model with PiSSA:
-
-    from peft import LoraConfig, get_peft_model
-    peft_config = LoraConfig(
-        r = 16,
-        lora_alpha = 16,
-        lora_dropout = 0,
-        init_lora_weights='pissa_niter_4', # Accelerated initialization with "_niter_xx"
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, peft_config)
-    model = prepare_model_for_kbit_training(model)
-    model.print_trainable_parameters()
-</details>
-
-
-<details open>
-<summary>3. Finetune PiSSA on Alpaca Dataset:</summary>
-
-    from trl import SFTTrainer
-    from datasets import load_dataset
-    dataset = load_dataset("fxmeng/alpaca_in_mixtral_format", split="train")
-    trainer = SFTTrainer(
-        model=model,
-        train_dataset=dataset,
-        dataset_text_field="text",
-        max_seq_length=1024,
-        tokenizer=tokenizer
-    )
-    trainer.train()
-</details>
-
-
-<details open>
-<summary>4. save and sharing your fine-tuned PiSSA to Hugging Face:</summary>
-
-    model.save_pretrained('pissa-r16-llama-2-7b-alpaca') # Save locally
-    model.push_to_hub('username/pissa-r16-llama-2-7b-alpaca') # # Push to Hugging Face
-</details>
-
-<details>
-<summary>[Optional] Convert PiSSA to LoRA for sharing to Hugging Face</summary>
-
-    ### It's essential to save initial PiSSA parameters for conversion to LoRA. ###
-
-    model.save_pretrained('pissa-r16-llama-2-7b-alpaca-init')
-
-    ### trainer.train()... ###
-
-    ### Upon completion, save final PiSSA parameters ###
-    model.save_pretrained('pissa-r16-llama-2-7b-alpaca-finetuned')
-
-    import os
-    import torch
-    from safetensors import safe_open
-    from safetensors.torch import save_file
-    import json
-
-    def pissa_to_lora(init_path, finetuned_path, output_path, device='cpu', tensors_name="adapter_model.safetensors", config_name="adapter_config.json"):
-        tensors_init = {}
-        with safe_open(os.path.join(init_path, tensors_name), framework="pt", device=device) as f:
-            for k in f.keys():
-                tensors_init[k] = f.get_tensor(k)
-                
-        tensors_finetune = {}
-        with safe_open(os.path.join(finetuned_path, tensors_name), framework="pt", device=device) as f:
-            for k in f.keys():
-                tensors_finetune[k] = f.get_tensor(k)
-                
-        tensors_delta_w = {}
-        for name in tensors_init.keys():
-            tensors_delta_w[name] = torch.cat([tensors_finetune[name], -tensors_init[name]], dim=0 if 'lora_A' in name else 1)
-
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
-        save_file(tensors_delta_w, os.path.join(output_path, tensors_name))
-        
-        with open(os.path.join(init_path, config_name))as f:
-            adapter_config = json.load(f)
-        adapter_config['init_lora_weights']=True
-        adapter_config['r']*=2
-        adapter_config['lora_alpha']*=2
-        with open(os.path.join(output_path, config_name),'w')as f:
-            json.dump(adapter_config, f)
-    
-    ### The different of the PiSSA parameters before and after the training corresponding to delta W in LoRA. ###
-    pissa_to_lora('pissa-r16-llama-2-7b-alpaca-init', 'pissa-r16-llama-2-7b-alpaca-finetuned', "pissa-r16-llama-2-7b-alpaca-delta_w", device='cpu')
-
-    ### Finally, create a new Hugging Face repository and upload the converted files... ###
-</details>
-
-
-<details open>
-<summary>5. Loading PiSSA from Local or Hugging Face:</summary>
-
-    from peft import PeftModel
-    base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b", device_map='auto')
-    model = PeftModel.from_pretrained(base_model, 'username/pissa-r16-llama-2-7b-alpaca')
-</details>
-
-
-<details>
-<summary>[Optional] Loading PiSSA-Converted LoRA from Local or Hugging Face:</summary>
-
-    from peft import PeftModel
-    base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b", device_map='auto')
-    model = PeftModel.from_pretrained(base_model, 'username/pissa-r16-llama-2-7b-alpaca-delta_w')
-</details>
-
+```
+pissa_post_training_saving(
+    init_path = f"{saving_path}/pissa_init",
+    finetuned_path = f"{saving_path}/pissa_ft",
+    output_path = f"{saving_path}/pissa_lora",
+)
+```
+Convert PiSSA to LoRA according to $\Delta W = A \times B - A_0 \times B_0 =  [A | A_0] \times [B | -B_0]^T=A^{'}B^{'}$.
+Using the converted LoRA does not require modifying the parameters of the base model. When multiple converted LoRAs are needed simultaneously, each adapter operates independently without interference, allowing for the adapters to be freely deleted or added.
 
 ## Citation
 ```
-@misc{meng2024pissa,
-      title={PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models}, 
-      author={Fanxu Meng and Zhaohui Wang and Muhan Zhang},
-      year={2024},
-      eprint={2404.02948},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@article{meng2024pissa,
+  title={PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models},
+  author={Meng, Fanxu and Wang, Zhaohui and Zhang, Muhan},
+  journal={arXiv preprint arXiv:2404.02948},
+  year={2024}
 }
 ```
