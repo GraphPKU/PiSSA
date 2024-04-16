@@ -57,7 +57,7 @@ To eliminate the errors introduced by Fast SVD, we have modified the computation
 ```
 pissa_pre_training_saving(peft_model, saving_path, ...)
 ```
-Store the decomposed model locally to prevent the necessity of re-decomposition across multiple fine-tuning experiments, and reducing errors when quantization of the residual model pre-decomposed at full precision.
+Store the decomposed model locally to prevent the necessity of re-decomposition across multiple fine-tuning experiments, and reducing errors in the application of quantization or fast SVD methods:
 
 (**Optional**) If quantization fine-tuning is desired, reload the pre-processed [residual model](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L107-L116) in 4-bit or 8-bit configurations along with the full-precision [PiSSA Adapter](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L122):
 ```
