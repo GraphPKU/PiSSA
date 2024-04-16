@@ -101,3 +101,7 @@ Using the converted LoRA does not require modifying the parameters of the base m
   year={2024}
 }
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=GraphPKU/PiSSA&type=Date)](https://star-history.com/#GraphPKU/PiSSA&Date)
