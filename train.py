@@ -11,14 +11,11 @@
 #    limitations under the License.
 
 import copy
-import logging
-import random
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Sequence, Union
+from typing import Optional, Dict, Sequence, List
 
 import torch
 import transformers
-from torch.utils.data import Dataset
 from transformers import Trainer
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
@@ -39,47 +36,15 @@ PROMPT = (
 class TrainingArguments(transformers.TrainingArguments):
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
     data_path: str = field(default=None, metadata={"help": "Path to the training data."})
-    data_length: int = field(default=512)
-    query: str = field(default='query')
-    response: str = field(default='response')
-    cache_dir: Optional[str] = field(default=None)
+    dataset_split: str = field(
+        default="train[:100000]", metadata={"help": "(`['train', 'test', 'eval']`):"}
+    )
+    dataset_field: List[str] = field(default=None, metadata={"help": "Fields of dataset input and output."})
     optim: str = field(default="adamw_torch")
     model_max_length: int = field(default=512, metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},)
     lora_r: int = field(default=16)
-    init_lora_weights: str = field(default='fp', metadata={"help": "init_lora_weights (`['gaussian', 'loftq', 'pisa', 'pisa_init']`):"})
+    init_lora_weights: str = field(default='fp', metadata={"help": "init_lora_weights (`['gaussian', 'loftq', 'pissa', 'pissa_niter_4']`):"})
     merge_and_save: bool = field(default=False)
-
-
-def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: str):
-    """Collects the state dict and dump to disk."""
-    state_dict = trainer.model.state_dict()
-    if trainer.args.should_save:
-        cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
-        del state_dict
-        trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
-
-
-def smart_tokenizer_and_embedding_resize(
-    special_tokens_dict: Dict,
-    tokenizer: transformers.PreTrainedTokenizer,
-    model: transformers.PreTrainedModel,
-):
-    """Resize tokenizer and embedding.
-
-    Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
-    """
-    num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-    model.resize_token_embeddings(len(tokenizer))
-
-    if num_new_tokens > 0:
-        input_embeddings = model.get_input_embeddings().weight.data
-        output_embeddings = model.get_output_embeddings().weight.data
-
-        input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(dim=0, keepdim=True)
-        output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(dim=0, keepdim=True)
-
-        input_embeddings[-num_new_tokens:] = input_embeddings_avg
-        output_embeddings[-num_new_tokens:] = output_embeddings_avg
 
 
 def _tokenize_fn(strings: Sequence[str], tokenizer: transformers.PreTrainedTokenizer) -> Dict:
@@ -153,7 +118,6 @@ def train():
         
     model = transformers.AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
-        cache_dir=script_args.cache_dir,
     )
 
     if script_args.init_lora_weights != 'fp':
@@ -170,27 +134,12 @@ def train():
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         script_args.model_name_or_path,
-        cache_dir=script_args.cache_dir,
         model_max_length=script_args.model_max_length,
         padding_side="right",
         use_fast=True,
     )
-    if tokenizer.pad_token is None:
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
-    if "llama" in script_args.model_name_or_path:
-        tokenizer.add_special_tokens(
-            {
-                "eos_token": DEFAULT_EOS_TOKEN,
-                "bos_token": DEFAULT_BOS_TOKEN,
-                "unk_token": DEFAULT_UNK_TOKEN,
-            }
-        )
-
-    raw_train_datasets = load_dataset('json', data_files=script_args.data_path, split=f"train[:{script_args.data_length}]", cache_dir=script_args.cache_dir)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    raw_train_datasets = load_dataset(script_args.data_path, split=script_args.dataset_split)
     train_dataset = raw_train_datasets.map(
         train_tokenize_function,
         batched=True,
@@ -199,12 +148,12 @@ def train():
         remove_columns=raw_train_datasets.column_names,
         load_from_cache_file=True, # not args.overwrite_cache
         desc="Running tokenizer on train dataset",
-        fn_kwargs={"tokenizer": tokenizer, "query": script_args.query, "response": script_args.response}
+        fn_kwargs={"tokenizer": tokenizer, "query": script_args.dataset_field[0], "response": script_args.dataset_field[1]}
     )
 
     
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
-    data_module = dict(train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator)
+    data_module = dict(train_dataset=train_dataset, data_collator=data_collator)
 
     trainer = Trainer(model=model, tokenizer=tokenizer, args=script_args, **data_module)
     model.config.use_cache = False
@@ -218,7 +167,7 @@ def train():
         model.save_pretrained(script_args.output_dir)
         tokenizer.save_pretrained(script_args.output_dir)
     else:
-        safe_save_model_for_hf_trainer(trainer=trainer, output_dir=script_args.output_dir)
+        model.save_pretrained(script_args.output_dir)
 
 
 if __name__ == "__main__":
