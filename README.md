@@ -33,7 +33,7 @@ pip install -e .
 #     self.base_layer.weight.data = self.base_layer.weight.data - lora_B @ lora_A
 ```
 
-### Step 2. Preparing the Model
+### Step 2. Preparing the Model and Datasets
 Utilize the decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng/pissa-661ce700721235e542a5d7a8).
 If the existing settings do not meet your needs, apply [PiSSA initialization](https://github.com/fxmeng/peft/blob/606a69279480bbdea847f4e5247804bdf7e6b898/examples/pissa_finetuning/pissa_finetuning.py#L85-L103) to a pre-trained model and save the decomposed parameters:
 
