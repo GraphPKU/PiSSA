@@ -162,7 +162,6 @@ def train():
     print(script_args)    
     model = transformers.AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
-        torch_dtype=torch.bfloat16,
         device_map="auto",
     )
     if script_args.adapter_name_or_path is not None:
