@@ -184,7 +184,7 @@ def train():
         print("Full Parameter Fine-Tuning")
             
     for name, param in model.named_parameters():
-        if param.requires_grad:
+        if param.requires_grad and "lora" in name:
             param.data = param.data.to(torch.float32)
                 
     print(model)
