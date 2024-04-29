@@ -162,6 +162,7 @@ def train():
     print(script_args)    
     model = transformers.AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
     )
     if script_args.adapter_name_or_path is not None:
@@ -181,7 +182,11 @@ def train():
         model = get_peft_model(model, lora_config)
     else:
         print("Full Parameter Fine-Tuning")
-    
+            
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            param.data = param.data.to(torch.float32)
+                
     print(model)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         script_args.model_name_or_path,
