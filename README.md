@@ -69,15 +69,13 @@ peft_model = PeftModel.from_pretrained(model, "pissa-llama-2-7b")
 We recommend downloading decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng/pissa-661ce700721235e542a5d7a8) instead of performing SVD every time.
 If the existing models do not meet your needs, apply PiSSA initialization to a pre-trained model and store the decomposed model locally:
 ```bash
-python pissa_finetuning.py \
+python preprocess.py \
     --base_model_name_or_path meta-llama/Llama-2-7b-hf \
     --init_lora_weights pissa \
-    --output_dir pissa-llama-2-7b-r32-alpha-32 \
-    --save_for_reuse True \
+    --output_dir pissa-llama-2-7b-r32 \
     --lora_r 32 \
     --lora_alpha 32 \
     --lora_dropout 0 \
-    --do_train False \
     --bits bf16
 ```
 
