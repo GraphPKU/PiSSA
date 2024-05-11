@@ -19,16 +19,17 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import argparse
 
 parser = argparse.ArgumentParser(
-    description="Merge Adapter to Base Model", help="The name or path of the fp32/16 base model."
+    description="Merge Adapter to Base Model"
 )
-parser.add_argument("--base_model_name_or_path", type=str, default="bf16")
+parser.add_argument("--base_model_name_or_path", type=str, default="bf16", help="The name or path of the fp32/16 base model.")
+parser.add_argument("--output_dir", type=str, default="pissa_model")
 parser.add_argument("--bits", type=str, default="bf16", choices=["bf16", "fp16", "fp32"])
 parser.add_argument(
     "--init_lora_weights", type=str, default="pissa", help="(`['pissa', 'pissa_niter_[number of iters]']`)"
 )
 parser.add_argument("--lora_r", type=int, default=128)
 parser.add_argument("--lora_alpha", type=int, default=128)
-parser.add_argument("--lora_dropout", type=int, default=0)
+parser.add_argument("--lora_dropout", type=float, default=0)
 script_args = parser.parse_args()
 print(script_args)
 
