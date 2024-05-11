@@ -24,10 +24,6 @@ from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, PeftModel
 
 IGNORE_INDEX = -100
-DEFAULT_PAD_TOKEN = "[PAD]"
-DEFAULT_EOS_TOKEN = "</s>"
-DEFAULT_BOS_TOKEN = "</s>"
-DEFAULT_UNK_TOKEN = "</s>"
 PROMPT = (
         "Below is an instruction that describes a task. "
         "Write a response that appropriately completes the request.\n\n"
@@ -201,20 +197,7 @@ def train():
         padding_side="right",
         use_fast=True,
     )
-    if tokenizer.pad_token is None:
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
-    if "llama" in script_args.model_name_or_path:
-        tokenizer.add_special_tokens(
-            {
-                "eos_token": DEFAULT_EOS_TOKEN,
-                "bos_token": DEFAULT_BOS_TOKEN,
-                "unk_token": DEFAULT_UNK_TOKEN,
-            }
-        )
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     raw_train_datasets = load_dataset(script_args.data_path, split=script_args.dataset_split)
     train_dataset = raw_train_datasets.map(
