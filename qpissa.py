@@ -188,6 +188,12 @@ def train():
         )
         model = get_peft_model(model, lora_config)
     
+    print("<=======params.requires_grad=======>")
+    for name, params in model.named_parameters():
+        if "embed_tokens" in name or "lm_head" in name:
+            params.requires_grad=False
+        if params.requires_grad:
+            print(name)
     print(model)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         script_args.model_name_or_path,
