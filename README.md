@@ -9,12 +9,14 @@ Leveraging a fast SVD technique, the initialization of PiSSA takes only a few se
 ![PiSSA](./assets/full-lora-pissa.png)
 ![GSM8K](./assets/gsm8k.png)
 ![GSM8K](./assets/quantization.png)
+## News
+- [2024.05.16] PiSSA has been merged into the [main branch of peft](https://github.com/huggingface/peft) as an optional initialization method for LoRA.
 
 ## Quick Start
 
 Install PiSSA via pip:
 ```
-pip install git+https://github.com/fxmeng/peft.git
+pip install -U peft
 ```
 Initialize a PiSSA and finetune it:
 ```python
@@ -66,7 +68,7 @@ peft_model = PeftModel.from_pretrained(model, "pissa-llama-2-7b")
 ## Advanced Usage
 
 ### Access the preprocessed models
-We recommend downloading decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng/pissa-661ce700721235e542a5d7a8) instead of performing SVD every time.
+We recommend downloading decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng) instead of performing SVD every time.
 If the existing models do not meet your needs, apply PiSSA initialization to a pre-trained model and store the decomposed model locally:
 ```bash
 python preprocess.py \
@@ -98,7 +100,7 @@ Utilizing the converted LoRA does not require modifying the parameters of the ba
 
 ## Reproduce the Results
 ### Preparing The Models and Datasets
-All the models and datasets we used are publicly available at [Hugging Face Collections](https://huggingface.co/collections/fxmeng/pissa-661ce700721235e542a5d7a8).
+All the models and datasets we used are publicly available at [Hugging Face Collections](https://huggingface.co/collections/fxmeng).
 ### Training and Evaluation
 ```
 cd PiSSA
