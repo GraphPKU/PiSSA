@@ -7,8 +7,9 @@ Furthermore, PiSSA reduces the 4-bit quantization error in LLaMA 2-7B by 18.97\%
 Leveraging a fast SVD technique, the initialization of PiSSA takes only a few seconds, inducing negligible cost of switching LoRA to PiSSA.
 
 ![PiSSA](./assets/full-lora-pissa.png)
-![GSM8K](./assets/gsm8k.png)
-![GSM8K](./assets/quantization.png)
+![llama-3-8b](./assets/llama3.png)
+![models](./assets/models.png)
+![loss-landscape](./assets/loss_landscape.gif)
 ## News
 - [2024.05.16] PiSSA has been merged into the [main branch of peft](https://github.com/huggingface/peft) as an optional initialization method for LoRA.
 
