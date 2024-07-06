@@ -8,4 +8,4 @@ jsonlines
 Fraction
 openai
 human_eval
-git+https://github.com/fxmeng/peft.git
+peft
