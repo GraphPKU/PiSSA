@@ -110,7 +110,7 @@ sh scripts/xxx.sh
 ## Citation
 ```
 @article{meng2024pissa,
-  title={PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models},
+  title={Pissa: Principal singular values and singular vectors adaptation of large language models},
   author={Meng, Fanxu and Wang, Zhaohui and Zhang, Muhan},
   journal={arXiv preprint arXiv:2404.02948},
   year={2024}
@@ -120,3 +120,11 @@ sh scripts/xxx.sh
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=GraphPKU/PiSSA&type=Date)](https://star-history.com/#GraphPKU/PiSSA&Date)
+
+## Follow-up Work
+**2024, May 27**, [LoRA-XS: Low-Rank Adaptation with Extremely Small Number of Parameters](https://arxiv.org/abs/2405.17604) performs basis adaption for principal singular values and singular vectors.  
+**2024, May 30**, [SVFT: Parameter-Efficient Fine-Tuning with Singular Vectors](https://arxiv.org/abs/2405.19597) freeze the singular vectors while fintune the singular values in a sparse manner.  
+**2024, Jun 3**, [OLoRA: Orthonormal Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2406.01775), leverages orthonormal matrix initialization through QR decomposition.  
+**2024, Jun 7**, [CorDA: Context-Oriented Decomposition Adaptation of Large Language Models](https://arxiv.org/abs/2406.05223), leverages knowledge-preserved adaptation and the instruction-previewed adaptation through Context-oriented Decomposition.  
+**2024, Jun 7**, [MiLoRA: Harnessing Minor Singular Components for Parameter-Efficient LLM Finetuning](https://arxiv.org/abs/2406.09044), Minor Singular Components Adaption.  
+**2024, Jun 18**, [LaMDA: Large Model Fine-Tuning via Spectrally Decomposed Low-Dimensional Adaptation](https://arxiv.org/abs/2406.12832) performs basis adaption for principal singular values and singular vectors.
