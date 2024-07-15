@@ -54,7 +54,7 @@ sh scripts/qlora.sh
 sh scripts/qpissa.sh
 ```
 ### Evaluation
-To evaluate the performance of your finetuned model, please follow the instruction in [fxmeng/pissa-evaluation-code](https://huggingface.co/datasets/fxmeng/pissa-evaluation-code).
+To evaluate the performance of your fine-tuned model, please follow the instructions in [fxmeng/pissa-evaluation-code](https://huggingface.co/datasets/fxmeng/pissa-evaluation-code).
 
 ## Advanced Usage
 We recommend downloading decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng) instead of performing SVD every time.
