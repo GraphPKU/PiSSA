@@ -1,11 +1,9 @@
-vllm
-xformers
-torch
 accelerate
 datasets
 transformers
-jsonlines
-Fraction
-openai
-human_eval
 peft
+attrdict
+deepspeed
+tensorboardX
+tqdm
+trl
