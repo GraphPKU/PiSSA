@@ -3,9 +3,7 @@ OUTPUT_PATH="output/PiSSA-Llama-3-8B-r128"
 DATA_PATH="meta-math/MetaMathQA"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
-
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-deepspeed --master_port=16973 pissa.py \
+deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 pissa.py \
     --deepspeed configs/ds_config_zero2_no_offload.json \
     --model_name_or_path $MODEL_PATH \
     --use_lora True \

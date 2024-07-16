@@ -5,9 +5,7 @@ OUTPUT_PATH="output/LoftQ-Llama-3-8B-4bit-64rank"
 DATA_PATH="meta-math/MetaMathQA"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
-# CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port=16974 pissa.py \
-CUDA_VISIBLE_DEVICES=0 \
-python pissa.py \
+deepspeed --master_port=16971 --include=localhost:0 pissa.py \
     --model_name_or_path $RESIDUAL_MODEL \
     --bf16 \
     --bits 4 \

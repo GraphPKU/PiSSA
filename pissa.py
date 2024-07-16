@@ -2,7 +2,6 @@ import copy
 import random
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Sequence, List, Literal
-import torch.distributed as dist
 import logging
 import os
 
@@ -209,9 +208,6 @@ def build_model(script_args, checkpoint_dir):
             module = module.to(torch.float32)
     return model
 
-def is_distributed():
-    return dist.is_available() and dist.is_initialized()
-
 def train():
     parser = transformers.HfArgumentParser(TrainingArguments)
     script_args = parser.parse_args_into_dataclasses()[0]
@@ -246,10 +242,8 @@ def train():
     model = build_model(script_args, resume_from_checkpoint_dir)
         
     raw_train_datasets = load_dataset(script_args.data_path, split=script_args.dataset_split)
-    
-    if not is_distributed() or script_args.local_rank == 0: 
-        print(model)
-    if is_distributed() and script_args.local_rank == 0: 
+
+    if script_args.local_rank > 0: 
         torch.distributed.barrier()
         
     train_dataset = raw_train_datasets.map(
@@ -264,13 +258,13 @@ def train():
     )
 
         
-    if not is_distributed() or script_args.local_rank == 0: 
+    if script_args.local_rank == 0:
+        torch.distributed.barrier()
+        print(model)
         logger.info("Training dataset samples:", len(train_dataset))
         for index in random.sample(range(len(train_dataset)), 3):
             logger.info(f"Sample {index} of the training set: {train_dataset[index]['input_ids']}, {train_dataset[index]['labels']}.")
             logger.info(f"Sample {index} of the training set: {tokenizer.decode(list(train_dataset[index]['input_ids']))}.")
-    if is_distributed() and script_args.local_rank == 0: 
-        torch.distributed.barrier()
 
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     data_module = dict(train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator)
