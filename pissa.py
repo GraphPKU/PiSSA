@@ -19,8 +19,11 @@ IGNORE_INDEX = -100
 EOT_TOKEN = "<|EOT|>"
 logger = logging.getLogger(__name__)
 
-def build_instruction_prompt(instruction: str):
-    return '''### Instruction:{}### Response:'''.format(instruction.strip()).lstrip()
+PROMPT = (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Response:"
+    )
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
@@ -143,10 +146,7 @@ class DataCollatorForSupervisedDataset(object):
         )
 
 def train_tokenize_function(examples, tokenizer, query, response):
-    sources = [
-        build_instruction_prompt(instruction)
-        for instruction in examples[query]
-    ]
+    sources = [PROMPT.format_map(dict(instruction=instruction)) for instruction in examples[query]]
     targets = [f"{output}\n{EOT_TOKEN}" for output in examples[response]]
     data_dict = preprocess(sources, targets, tokenizer)
     return data_dict
