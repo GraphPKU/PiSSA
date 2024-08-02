@@ -3,7 +3,8 @@ OUTPUT_PATH="output/QPiSSA-Llama-3-8B-4bit-r128-5iter"
 DATA_PATH="meta-math/MetaMathQA"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
-deepspeed --master_port=16971 --include=localhost:2 pissa.py \
+deepspeed --master_port=16971 --include=localhost:0 pissa.py \
+    --deepspeed configs/ds_config_zero2_no_offload.json \
     --model_name_or_path $RESIDUAL_MODEL \
     --bf16 \
     --bits 4 \
