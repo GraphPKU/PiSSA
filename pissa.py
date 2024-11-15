@@ -16,7 +16,6 @@ from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_tr
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
 IGNORE_INDEX = -100
-EOT_TOKEN = "<|EOT|>"
 logger = logging.getLogger(__name__)
 
 PROMPT = (
@@ -147,7 +146,7 @@ class DataCollatorForSupervisedDataset(object):
 
 def train_tokenize_function(examples, tokenizer, query, response):
     sources = [PROMPT.format_map(dict(instruction=instruction)) for instruction in examples[query]]
-    targets = [f"{output}\n{EOT_TOKEN}" for output in examples[response]]
+    targets = [f"{output}\n{tokenizer.eos_token}" for output in examples[response]]
     data_dict = preprocess(sources, targets, tokenizer)
     return data_dict
 
@@ -168,11 +167,6 @@ def build_model(script_args, checkpoint_dir):
         torch_dtype=compute_dtype,
         trust_remote_code=True,
     )
-    if compute_dtype == torch.float32 and script_args.bits == 4:
-        if torch.cuda.is_bf16_supported():
-            logger.info('='*80)
-            logger.info('Your GPU supports bfloat16, you can accelerate training with the argument --bf16')
-            logger.info('='*80)
     setattr(model, 'model_parallel', True)
     setattr(model, 'is_parallelizable', True)
     # Tokenizer
@@ -231,9 +225,6 @@ def train():
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    logger.info("PAD Token:", tokenizer.pad_token, tokenizer.pad_token_id)
-    logger.info("BOS Token", tokenizer.bos_token, tokenizer.bos_token_id)
-    logger.info("EOS Token", tokenizer.eos_token, tokenizer.eos_token_id)
 
     if script_args.local_rank == 0:
         logger.info("Load tokenizer from {} over.".format(script_args.model_name_or_path))
