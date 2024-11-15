@@ -31,3 +31,9 @@ deepspeed --master_port=16971 --include=localhost:0 pissa.py \
     --logging_steps 1 \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
+
+python inference/merge_adapter.py --base_model $BASE_MODEL --adapter $OUTPUT_PATH/checkpoint-781/ --output_path $OUTPUT_PATH
+python inference/gen_vllm.py --data_path inference/data/eval_gsm8k/  --model $OUTPUT_PATH --output_file gsm8k_response.jsonl
+python inference/acc_gsm8k.py --input_file $OUTPUT_PATH/gsm8k_response.jsonl 
+python inference/gen_vllm.py --data_path inference/data/eval_math/  --model $OUTPUT_PATH --output_file math_response.jsonl
+python inference/acc_math.py --input_file $OUTPUT_PATH/math_response.jsonl
