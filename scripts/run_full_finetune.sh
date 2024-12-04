@@ -24,3 +24,9 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --logging_steps 1 \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
+
+
+python inference/gen_vllm.py --model $OUTPUT_PATH/$lr --data_path inference/data/eval_gsm8k/ --output_file gsm8k_response.jsonl
+python inference/gen_vllm.py --model $OUTPUT_PATH/$lr --data_path inference/data/eval_math/ --output_file math_response.jsonl
+python inference/acc_gsm8k.py --input_file $OUTPUT_PATH//$lr/gsm8k_response.jsonl 
+python inference/acc_math.py --input_file $OUTPUT_PATH/$lr/math_response.jsonl 
