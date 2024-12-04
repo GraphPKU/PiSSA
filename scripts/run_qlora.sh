@@ -3,9 +3,10 @@ OUTPUT_PATH="output/QLoRA-Llama-3-8B-4bit-r128"
 DATA_PATH="meta-math/MetaMathQA"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
-deepspeed --master_port=16971 --include=localhost:0 pissa.py \
+deepspeed --master_port=16971 --include=localhost:0 train.py \
     --deepspeed configs/ds_config_zero2_no_offload.json \
     --model_name_or_path $BASE_MODEL \
+    --full_finetune False \
     --bf16 \
     --bits 4 \
     --use_lora True \
