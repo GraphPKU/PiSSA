@@ -3,9 +3,10 @@ OUTPUT_PATH="output/FullFT-Llama-3-8B"
 DATA_PATH="meta-math/MetaMathQA"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
-deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 pissa.py \
+deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --deepspeed configs/ds_config_zero2_no_offload.json \
     --model_name_or_path $BASE_MODEL \
+    --full_finetune True \
     --data_path $DATA_PATH \
     --dataset_field query response \
     --dataset_split "train[:100000]"\
