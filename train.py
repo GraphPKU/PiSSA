@@ -9,7 +9,7 @@ import torch
 import torch.distributed
 import transformers
 from transformers import Trainer, BitsAndBytesConfig
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
 import datasets
 import numpy as np
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, PeftModel
@@ -43,8 +43,10 @@ class TrainingArguments(transformers.TrainingArguments):
     quant_type: str = field(default="nf4",metadata={"help": "Quantization data type to use. Should be one of `fp4` or `nf4`."})
     # DataArguments:
     data_path: str = field(default=None, metadata={"help": "Path to the training data."})
-    dataset_split: str = field(default="train[:100000]", metadata={"help": "(`['train', 'test', 'eval']`):"})
+    sub_task: List[str] = field(default=None)
+    dataset_split: str = field(default="train", metadata={"help": "(`['train', 'test', 'eval']`):"})
     dataset_field: List[str] = field(default=None, metadata={"help": "Fields of dataset input and output."})
+    shuffle_dataset : Optional[bool] = field(default=True)
     # TrainingArguments
     optim: str = field(default="adamw_torch")
     model_max_length: int = field(default=512,metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},)
@@ -230,8 +232,30 @@ def train():
     
     resume_from_checkpoint_dir = get_last_checkpoint(script_args.output_dir)
     model = build_model(script_args, resume_from_checkpoint_dir)
+
+    all_training_dataset = []
+    for task in script_args.sub_task:
+        if ":" in task: # e.g. math:500, gsm8k:100
+            cur_task, num_split = task.split(":")
+            cur_split = f"{script_args.dataset_split}[:{num_split}]"
+        else:
+            cur_task, cur_split = task, script_args.dataset_split
+
+        ds = load_dataset(script_args.data_path, data_dir=cur_task, split=cur_split)
+        if script_args.local_rank == 0:
+            print(f"{script_args.data_path}/{cur_task}/{cur_split}/{ds.num_rows}")
+            for k,v in ds[0].items():
+                print("-"*100)
+                print(k,end=':\t')
+                print(v)
+            print("+"*100)
+        all_training_dataset.append(ds)
         
-    raw_train_datasets = load_dataset(script_args.data_path, split=script_args.dataset_split)
+    raw_train_datasets = concatenate_datasets(all_training_dataset)
+    if script_args.shuffle_dataset:
+        if script_args.local_rank == 0:
+            print(f"Shuffle dataset with seed={script_args.seed}")
+        raw_train_datasets = raw_train_datasets.shuffle(seed=script_args.seed)
 
     if script_args.local_rank > 0: 
         torch.distributed.barrier()

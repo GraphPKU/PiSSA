@@ -18,23 +18,20 @@ from peft import LoraConfig, get_peft_model
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import argparse
 
-parser = argparse.ArgumentParser(
-    description="Merge Adapter to Base Model"
-)
-parser.add_argument("--base_model_name_or_path", type=str, default="bf16", help="The name or path of the fp32/16 base model.")
-parser.add_argument("--output_dir", type=str, default="pissa_model")
+parser = argparse.ArgumentParser(description="Separate the principal singular value and singular vectors from base model")
+parser.add_argument("--base_model_path", type=str, required=True, help="The name or path of the base model.")
+parser.add_argument("--output_dir", type=str, required=True)
 parser.add_argument("--bits", type=str, default="bf16", choices=["bf16", "fp16", "fp32"])
-parser.add_argument(
-    "--init_lora_weights", type=str, default="pissa", help="(`['pissa', 'pissa_niter_[number of iters]']`)"
-)
+parser.add_argument("--init_weights", type=str, default="pissa", help="(`['pissa', 'pissa_niter_[number of iters]']`)")
 parser.add_argument("--lora_r", type=int, default=128)
 parser.add_argument("--lora_alpha", type=int, default=128)
 parser.add_argument("--lora_dropout", type=float, default=0)
+parser.add_argument('--target_modules', nargs='+', help='', required=True)
 script_args = parser.parse_args()
 print(script_args)
 
 model = AutoModelForCausalLM.from_pretrained(
-    script_args.base_model_name_or_path,
+    script_args.base_model_path,
     torch_dtype=(
         torch.float16
         if script_args.bits == "fp16"
@@ -42,16 +39,14 @@ model = AutoModelForCausalLM.from_pretrained(
     ),
     device_map="auto",
 )
-tokenizer = AutoTokenizer.from_pretrained(script_args.base_model_name_or_path)
+tokenizer = AutoTokenizer.from_pretrained(script_args.base_model_path)
 tokenizer.pad_token_id = tokenizer.eos_token_id
 lora_config = LoraConfig(
     r=script_args.lora_r,
     lora_alpha=script_args.lora_alpha,
-    init_lora_weights=script_args.init_lora_weights,
+    init_lora_weights=True if script_args.init_weights=="True" else script_args.init_weights,
     lora_dropout=script_args.lora_dropout,
-    target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
-    bias="none",
-    task_type="CAUSAL_LM",
+    target_modules=script_args.target_modules,
 )
 peft_model = get_peft_model(model, lora_config)
 
