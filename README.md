@@ -23,14 +23,19 @@ Install PiSSA via pip:
 ```
 conda create -n pissa python=3.10
 conda activate pissa
+conda install git
+git clone https://github.com/GraphPKU/PiSSA.git
+cd PiSSA/
+conda install git-lfs
+git clone https://huggingface.co/datasets/fxmeng/pissa-dataset
 conda install nvidia/label/cuda-12.1.0::cuda-toolkit
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install pytorch==2.4.0 torchvision=0.19.0 pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation
 ```
 
 ## Reproduce the Results
-All the datasets we used are publicly available at [Dataset](https://huggingface.co/collections/fxmeng/pissa-datasets-661ce700721235e542a5d7a8).
+All the datasets we used are publicly available at [Dataset](https://huggingface.co/datasets/fxmeng/pissa-dataset).
 
 The PiSSA-initialized models are shared on [Models](https://huggingface.co/collections/fxmeng/pissa-qwen2-666a55e58b6feadc1015aa75) for easy reuse. They retain the same input and output as the original models but are split into residual models and PiSSA adapters for more effective fine-tuning.
 
@@ -47,7 +52,7 @@ The PiSSA-initialized models are shared on [Models](https://huggingface.co/colle
 | Qwen2-72B-Instruct | --| [r64,128](https://huggingface.co/collections/fxmeng/pissa-qwen2-666a55e58b6feadc1015aa75) |
 
 ### Training
-Running the following script will automatically download the dataset and model, then start training:
+Running the following script will automatically download the model, then start training:
 ```
 sh scripts/run_full_finetune.sh
 sh scripts/lora.sh
@@ -57,7 +62,7 @@ sh scripts/qlora.sh
 sh scripts/qpissa.sh
 ```
 ### Evaluation
-To evaluate the performance of your fine-tuned model, please follow the instructions in [fxmeng/pissa-evaluation-code](https://huggingface.co/datasets/fxmeng/pissa-evaluation-code).
+To evaluate the performance of your fine-tuned model, please follow the instructions in [fxmeng/pissa-dataset](https://huggingface.co/datasets/fxmeng/pissa-dataset).
 
 ## Advanced Usage
 We recommend downloading decomposed models directly from the [Hugging Face Collections](https://huggingface.co/collections/fxmeng) instead of performing SVD every time.
