@@ -23,12 +23,12 @@ Install PiSSA via pip:
 ```
 conda create -n pissa python=3.10
 conda activate pissa
-conda install git
+conda install git git-lfs
 git clone https://github.com/GraphPKU/PiSSA.git
 cd PiSSA/
-conda install git-lfs
 git lfs install
 git clone https://huggingface.co/datasets/fxmeng/pissa-dataset
+# git clone https://hf-mirror.com/datasets/fxmeng/pissa-dataset
 conda install nvidia/label/cuda-12.1.0::cuda-toolkit
 conda install pytorch==2.4.0 torchvision=0.19.0 pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install -r requirements.txt
