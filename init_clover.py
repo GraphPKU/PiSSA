@@ -19,36 +19,40 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import argparse
 
 parser = argparse.ArgumentParser(description="Merge Adapter to Base Model")
-parser.add_argument("--base_model_name_or_path", type=str, help="The name or path of the fp32/16 base model.")
+parser.add_argument("--base_model_path", type=str, help="The name or path of the fp32/16 base model.")
 parser.add_argument("--output_dir", type=str, default="clover_model")
 parser.add_argument("--bits", type=str, default="bf16", choices=["bf16", "fp16", "fp32"])
 parser.add_argument("--init_weights", type=str, default="eye", help="(`['eye', 'qr']`)")
 parser.add_argument('--target_modules', nargs='+', help='', required=True)
-script_args = parser.parse_args()
-print(script_args)
+parser.add_argument("--head_dim", type=int)
+parser.add_argument("--num_head", type=int)
+args = parser.parse_args()
+print(args)
 
 model = AutoModelForCausalLM.from_pretrained(
-    script_args.base_model_name_or_path,
+    args.base_model_path,
     torch_dtype=(
         torch.float16
-        if script_args.bits == "fp16"
-        else (torch.bfloat16 if script_args.bits == "bf16" else torch.float32)
+        if args.bits == "fp16"
+        else (torch.bfloat16 if args.bits == "bf16" else torch.float32)
     ),
     device_map="auto",
 )
-tokenizer = AutoTokenizer.from_pretrained(script_args.base_model_name_or_path)
+tokenizer = AutoTokenizer.from_pretrained(args.base_model_path)
 clover_config = CloverConfig(
-    init_clover_weights=script_args.init_weights,
-    target_modules=script_args.target_modules,
+    init_clover_weights=args.init_weights,
+    target_modules=args.target_modules,
+    head_dim=args.head_dim,
+    num_head=args.num_head,
     task_type="CAUSAL_LM",
 )
 peft_model = get_peft_model(model, clover_config)
 
 # Save CLOVER modules:
 peft_model.peft_config["default"].init_clover_weights = "eye"
-peft_model.save_pretrained(os.path.join(script_args.output_dir, "clover_init"))
+peft_model.save_pretrained(os.path.join(args.output_dir, "clover_init"))
 # Save residual model:
 peft_model = peft_model.unload()
-peft_model.save_pretrained(script_args.output_dir)
+peft_model.save_pretrained(args.output_dir)
 # Save the tokenizer:
-tokenizer.save_pretrained(script_args.output_dir)
+tokenizer.save_pretrained(args.output_dir)
