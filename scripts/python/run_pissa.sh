@@ -9,7 +9,7 @@ if [ -e $RES_MODEL ]; then
     echo "Use pre-initialized residual model."
 else
     echo "Perform PiSSA initialization by my self."
-    python init_pissa.py --base_model_path $BASE_MODEL --output_dir $RES_MODEL --init_weights pissa_niter_16 --lora_r 128 --lora_alpha 128 --lora_dropout 0 --target_modules q_proj k_proj v_proj o_proj gate_proj up_proj down_proj
+    python utils/init_pissa.py --base_model_path $BASE_MODEL --output_dir $RES_MODEL --init_weights pissa_niter_16 --lora_r 128 --lora_alpha 128 --lora_dropout 0 --target_modules q_proj k_proj v_proj o_proj gate_proj up_proj down_proj
 fi
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
@@ -22,7 +22,7 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --data_path $DATA_PATH \
     --sub_task python \
     --dataset_split train \
-    --dataset_field query response \
+    --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
     --num_train_epochs 1 \
     --model_max_length 512 \
@@ -39,7 +39,7 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --report_to "tensorboard" \
     --merge True \
 
-python gen_vllm.py --model $OUTPUT_PATH --sub_task python --output_file $OUTPUT_PATH/python_response.jsonl
-python pissa-dataset/python_process_preds.py --path $OUTPUT_PATH/python_response.jsonl
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task python --output_file $OUTPUT_PATH/python_response.jsonl
+python utils/code_process.py --path $OUTPUT_PATH/python_response.jsonl
 evalplus.evaluate --dataset humaneval --samples $OUTPUT_PATH/humaneval.jsonl
 evalplus.evaluate --dataset mbpp --samples $OUTPUT_PATH/mbpp.jsonl

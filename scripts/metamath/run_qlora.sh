@@ -1,6 +1,6 @@
-BASE_MODEL="meta-llama/Meta-Llama-3-8B"
-OUTPUT_PATH="output/QLoRA-Llama-3-8B-4bit-r128"
-DATA_PATH="meta-math/MetaMathQA"
+BASE_MODEL="meta-llama/Llama-2-7b-hf"
+OUTPUT_PATH="output/metamath-QLoRA-Llama-2-7B-4bit-r128"
+DATA_PATH="pissa-dataset"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
 deepspeed --master_port=16971 --include=localhost:0 train.py \
@@ -9,15 +9,15 @@ deepspeed --master_port=16971 --include=localhost:0 train.py \
     --full_finetune False \
     --bf16 \
     --bits 4 \
-    --use_lora True \
-    --init_lora_weights True \
+    --init_weights True \
     --target_modules "q_proj,v_proj,k_proj,o_proj,gate_proj,down_proj,up_proj" \
     --lora_rank 128 \
     --lora_alpha 128 \
     --lora_dropout 0 \
     --data_path $DATA_PATH \
-    --dataset_field query response \
-    --dataset_split "train[:100000]"\
+    --dataset_split "train"\
+    --sub_task metamath:100000 \
+    --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
     --num_train_epochs 1 \
     --model_max_length 512 \
@@ -33,8 +33,6 @@ deepspeed --master_port=16971 --include=localhost:0 train.py \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
 
-python inference/merge_adapter.py --base_model $BASE_MODEL --adapter $OUTPUT_PATH/checkpoint-781/ --output_path $OUTPUT_PATH
-python inference/gen_vllm.py --data_path inference/data/eval_gsm8k/  --model $OUTPUT_PATH --output_file gsm8k_response.jsonl
-python inference/acc_gsm8k.py --input_file $OUTPUT_PATH/gsm8k_response.jsonl 
-python inference/gen_vllm.py --data_path inference/data/eval_math/  --model $OUTPUT_PATH --output_file math_response.jsonl
-python inference/acc_math.py --input_file $OUTPUT_PATH/math_response.jsonl
+python utils/merge_adapter.py --base_model $BASE_MODEL --adapter $OUTPUT_PATH/checkpoint-781/ --output_path $OUTPUT_PATH
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task metamath --output_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl

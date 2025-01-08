@@ -1,5 +1,5 @@
 BASE_MODEL="meta-llama/Llama-2-7b-hf"
-OUTPUT_PATH="output/QLoRA-Llama-2-7B-4bit-r128"
+OUTPUT_PATH="output/python-QLoRA-Llama-2-7B-4bit-r128"
 DATA_PATH="pissa-dataset"
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
@@ -16,7 +16,7 @@ deepspeed --master_port=16971 --include=localhost:0 train.py \
     --lora_dropout 0 \
     --data_path $DATA_PATH \
     --dataset_split "train"\
-    --sub_task metamath:100000 \
+    --sub_task python \
     --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
     --num_train_epochs 1 \
@@ -33,6 +33,8 @@ deepspeed --master_port=16971 --include=localhost:0 train.py \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
 
-python utils/merge_adapter.py --base_model $BASE_MODEL --adapter $OUTPUT_PATH/checkpoint-781/ --output_path $OUTPUT_PATH
-python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task metamath --output_file $OUTPUT_PATH/metamath_response.jsonl
-python utils/test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/merge_adapter.py --base_model $BASE_MODEL --adapter $OUTPUT_PATH/checkpoint-819/ --output_path $OUTPUT_PATH
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task python --output_file $OUTPUT_PATH/python_response.jsonl
+python utils/code_process.py --path $OUTPUT_PATH/python_response.jsonl
+evalplus.evaluate --dataset humaneval --samples $OUTPUT_PATH/humaneval.jsonl
+evalplus.evaluate --dataset mbpp --samples $OUTPUT_PATH/mbpp.jsonl

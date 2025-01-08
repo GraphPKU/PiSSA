@@ -1,6 +1,6 @@
 BASE_MODEL="meta-llama/Llama-2-7b-hf"
 RES_MODEL="output/QPiSSA-Llama-2-7b-4bit-r128-5iter"
-OUTPUT_PATH="output/math-QPiSSA-Llama-2-7b-4bit-r128-5iter"
+OUTPUT_PATH="output/python-QPiSSA-Llama-2-7b-4bit-r128-5iter"
 DATA_PATH="pissa-dataset"
 
 if [ -e $RES_MODEL ]; then
@@ -19,7 +19,7 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --bits 4 \
     --adapter_name_or_path "qpissa_init" \
     --data_path $DATA_PATH \
-    --sub_task metamath:100000 \
+    --sub_task python \
     --dataset_split train \
     --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
@@ -37,6 +37,8 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
 
-python utils/merge_adapter.py --base_model $RES_MODEL --adapter $OUTPUT_PATH/checkpoint-781/ --output_path $OUTPUT_PATH
-python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task metamath --output_file $OUTPUT_PATH/metamath_response.jsonl
-python utils/test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/merge_adapter.py --base_model $RES_MODEL --adapter $OUTPUT_PATH/checkpoint-819/ --output_path $OUTPUT_PATH
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task python --output_file $OUTPUT_PATH/python_response.jsonl
+python utils/code_process.py --path $OUTPUT_PATH/python_response.jsonl
+evalplus.evaluate --dataset humaneval --samples $OUTPUT_PATH/humaneval.jsonl
+evalplus.evaluate --dataset mbpp --samples $OUTPUT_PATH/mbpp.jsonl
