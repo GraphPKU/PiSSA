@@ -13,6 +13,7 @@ Leveraging a fast SVD technique, the initialization of PiSSA takes only a few se
 ![models](./assets/models.png)
 ![loss-landscape](./assets/loss_landscape.gif)
 ## News
+- [2025.01.09] Provide [Document](https://huggingface.co/datasets/fxmeng/pissa-dataset) and [中文文档](https://hf-mirror.com/datasets/fxmeng/pissa-dataset/blob/main/README_CN.md) to help you better use PiSSA for training and testing.
 - [2024.07.17] PiSSA now support Conv2d and Embedding, [here](pissa-sdxl.ipynb) is an example for using PiSSA on SDXL.
 - [2024.07.16] PiSSA now support deepspeed.
 - [2024.05.16] PiSSA has been merged into the [main branch of peft](https://github.com/huggingface/peft) as an optional initialization method for LoRA.
