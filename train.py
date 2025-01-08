@@ -12,7 +12,7 @@ from transformers import Trainer, BitsAndBytesConfig
 from datasets import load_dataset, concatenate_datasets
 import datasets
 import numpy as np
-from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, PeftModel
+from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training, PeftModel, LoraRuntimeConfig
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
 IGNORE_INDEX = -100
@@ -33,6 +33,7 @@ class TrainingArguments(transformers.TrainingArguments):
     full_finetune : Optional[bool] = field(default=True)
     adapter_name_or_path: Optional[str] = field(default=None,metadata={"help": ("Pre-initialized PiSSA adapter path; when this is not None, the following arguments are ignored."),},)
     init_weights: bool | str = field(default=True,metadata={"help": ("True -> LoRA; `pissa` -> PiSSA; `pissa_niter_16` -> Fast SVD PiSSA"),},)
+    use_dora : Optional[bool] = field(default=False)
     target_modules : Optional[str] = field(default="q_proj,v_proj,k_proj,o_proj,gate_proj,down_proj,up_proj")
     lora_rank : Optional[int] = field(default=8)
     lora_alpha : Optional[float] = field(default=32.)
@@ -46,7 +47,7 @@ class TrainingArguments(transformers.TrainingArguments):
     sub_task: List[str] = field(default=None)
     dataset_split: str = field(default="train", metadata={"help": "(`['train', 'test', 'eval']`):"})
     dataset_field: List[str] = field(default=None, metadata={"help": "Fields of dataset input and output."})
-    shuffle_dataset : Optional[bool] = field(default=True)
+    shuffle_dataset : Optional[bool] = field(default=False)
     # TrainingArguments
     optim: str = field(default="adamw_torch")
     model_max_length: int = field(default=512,metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},)
@@ -188,6 +189,8 @@ def build_model(script_args, checkpoint_dir):
         else:
             logger.info(f'Init LoRA/PiSSA modules...')
             peft_config = LoraConfig(
+                use_dora=script_args.use_dora,
+                runtime_config=LoraRuntimeConfig(ephemeral_gpu_offload=script_args.use_dora),
                 task_type=TaskType.CAUSAL_LM,
                 target_modules=script_args.target_modules.split(','),
                 inference_mode=False,

@@ -9,7 +9,7 @@ if [ -e $RES_MODEL ]; then
     echo "Use pre-initialized residual model."
 else
     echo "Perform PiSSA initialization by my self."
-    python init_pissa.py --base_model_path $BASE_MODEL --output_dir $RES_MODEL --init_weights pissa_niter_16 --lora_r 128 --lora_alpha 128 --lora_dropout 0 --target_modules q_proj k_proj v_proj o_proj gate_proj up_proj down_proj
+    python utils/init_pissa.py --base_model_path $BASE_MODEL --output_dir $RES_MODEL --init_weights pissa --lora_r 128 --lora_alpha 128 --lora_dropout 0 --target_modules q_proj k_proj v_proj o_proj gate_proj up_proj down_proj
 fi
 
 # batch size = per_device_train_batch_size * gradient_accumulation_steps * num_gpus = 128
@@ -20,9 +20,9 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --bf16 \
     --adapter_name_or_path "pissa_init" \
     --data_path $DATA_PATH \
-    --sub_task gsm8k:60000 math:40000 \
+    --sub_task metamath:100000 \
     --dataset_split train \
-    --dataset_field query response \
+    --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
     --num_train_epochs 1 \
     --model_max_length 512 \
@@ -39,5 +39,5 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --report_to "tensorboard" \
     --merge True \
 
-python gen_vllm.py --model $OUTPUT_PATH --sub_task gsm8k math --output_file $OUTPUT_PATH/metamath_response.jsonl
-python test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task metamath --output_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl

@@ -47,8 +47,8 @@ for task in args.sub_task:
     all_test_dataset.append(ds)
     
 dataset = concatenate_datasets(all_test_dataset)
-batch_dataset_query = batch_data(dataset["query"], batch_size=args.batch_size)
-batch_dataset_answer = batch_data(dataset["response"], batch_size=args.batch_size)
+batch_dataset_query = batch_data(dataset["instruction"], batch_size=args.batch_size)
+batch_dataset_answer = batch_data(dataset["output"], batch_size=args.batch_size)
 batch_dataset_task = batch_data(dataset["type"], batch_size=args.batch_size)
 
 for idx, (batch_query, batch_answer, batch_task) in enumerate(zip(batch_dataset_query, batch_dataset_answer,batch_dataset_task)):

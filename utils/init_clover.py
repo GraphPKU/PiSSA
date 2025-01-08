@@ -21,8 +21,8 @@ import argparse
 parser = argparse.ArgumentParser(description="Merge Adapter to Base Model")
 parser.add_argument("--base_model_path", type=str, help="The name or path of the fp32/16 base model.")
 parser.add_argument("--output_dir", type=str, default="clover_model")
-parser.add_argument("--bits", type=str, default="bf16", choices=["bf16", "fp16", "fp32"])
-parser.add_argument("--init_weights", type=str, default="eye", help="(`['eye', 'qr']`)")
+parser.add_argument("--bits", type=str, default="fp32", choices=["bf16", "fp16", "fp32"])
+parser.add_argument("--init_weights", type=str, default="svd", help="(`['eye', 'svd']`)")
 parser.add_argument('--target_modules', nargs='+', help='', required=True)
 parser.add_argument("--head_dim", type=int)
 parser.add_argument("--num_head", type=int)
@@ -47,6 +47,7 @@ clover_config = CloverConfig(
     task_type="CAUSAL_LM",
 )
 peft_model = get_peft_model(model, clover_config)
+print(peft_model.get_nb_trainable_parameters())
 
 # Save CLOVER modules:
 peft_model.peft_config["default"].init_clover_weights = "eye"

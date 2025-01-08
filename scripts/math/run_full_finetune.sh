@@ -11,14 +11,14 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --full_finetune True \
     --bf16 \
     --data_path $DATA_PATH \
-    --sub_task gsm8k:60000 math:40000 \
+    --sub_task metamath:100000 \
     --dataset_split "train"\
-    --dataset_field query response \
+    --dataset_field instruction output \
     --output_dir $OUTPUT_PATH \
     --num_train_epochs 1 \
     --model_max_length 512 \
-    --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 4 \
+    --per_device_train_batch_size 2 \
+    --gradient_accumulation_steps 8 \
     --save_strategy "steps" \
     --save_steps 1000 \
     --save_total_limit 1 \
@@ -29,5 +29,5 @@ deepspeed --master_port=16971 --include=localhost:0,1,2,3,4,5,6,7 train.py \
     --lr_scheduler_type "cosine" \
     --report_to "tensorboard" \
 
-python gen_vllm.py --model $OUTPUT_PATH --sub_task gsm8k math --output_file $OUTPUT_PATH/metamath_response.jsonl
-python test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/gen_vllm.py --model $OUTPUT_PATH --sub_task metamath --output_file $OUTPUT_PATH/metamath_response.jsonl
+python utils/test_acc.py --input_file $OUTPUT_PATH/metamath_response.jsonl
