@@ -57,7 +57,7 @@ for key, value in tqdm(peft_model.state_dict().items()):
         state_dict[key.replace("base_layer", "lora_B.default")] = lora_B.to('cpu')
 
 print(peft_model.load_state_dict(state_dict, strict=False))
-peft_model.save_pretrained(f"{args.output_path}/qpissa_init")
+peft_model.save_pretrained(f"{args.output_path}/pissa_init")
 peft_model = peft_model.unload()
 peft_model.save_pretrained(args.output_path)
 tokenizer.save_pretrained(args.output_path)

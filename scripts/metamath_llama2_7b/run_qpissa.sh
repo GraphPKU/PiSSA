@@ -17,7 +17,7 @@ deepspeed --master_port=16971 --include=localhost:0 train.py \
     --full_finetune False \
     --bf16 \
     --bits 4 \
-    --adapter_name_or_path "qpissa_init" \
+    --adapter_name_or_path "pissa_init" \
     --data_path $DATA_PATH \
     --sub_task metamath:100000 \
     --dataset_split train \

@@ -9,7 +9,7 @@ from datasets import load_dataset, concatenate_datasets
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, help="")
 parser.add_argument("--data_path", type=str, default="pissa-dataset")
-parser.add_argument('--sub_task', nargs='+', help='', required=True)
+parser.add_argument('--sub_task', nargs='+', help='')
 parser.add_argument('--dataset_split', type=str, default="test", help='')
 parser.add_argument('--output_file', type=str, default="model_response.jsonl", help="")
 parser.add_argument("--batch_size", type=int, default=400, help="")
@@ -35,18 +35,22 @@ def batch_data(data_list, batch_size=1):
     batch_data.append(data_list[last_start:last_end])
     return batch_data
 
-all_test_dataset = []
-for task in args.sub_task:
-    ds = load_dataset(args.data_path, data_dir=task, split=args.dataset_split)
-    print(f"{args.data_path}/{task}/{args.dataset_split}")
-    for k,v in ds[0].items():
-        print("-"*100)
-        print(k,end=':\t')
-        print(v)
-    print("+"*100)
-    all_test_dataset.append(ds)
+if args.sub_task is None:
+    dataset = load_dataset(args.data_path, split=args.dataset_split)
+else:
+    all_test_dataset = []
+    for task in args.sub_task:
+        ds = load_dataset(args.data_path, data_dir=task, split=args.dataset_split)
+        print(f"{args.data_path}/{task}/{args.dataset_split}")
+        for k,v in ds[0].items():
+            print("-"*100)
+            print(k,end=':\t')
+            print(v)
+        print("+"*100)
+        all_test_dataset.append(ds)
+        
+    dataset = concatenate_datasets(all_test_dataset)
     
-dataset = concatenate_datasets(all_test_dataset)
 batch_dataset_query = batch_data(dataset["instruction"], batch_size=args.batch_size)
 batch_dataset_answer = batch_data(dataset["output"], batch_size=args.batch_size)
 batch_dataset_task = batch_data(dataset["type"], batch_size=args.batch_size)
